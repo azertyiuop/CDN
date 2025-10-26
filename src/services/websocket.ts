@@ -22,36 +22,9 @@ export class WebSocketService {
     try {
       this.onStatusCallback?.('connecting');
 
-      // Construire l'URL WebSocket dynamiquement en fonction de l'environnement
-      const host = window.location.host;
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
 
-      let wsUrl: string;
-
-      console.log('Current host:', host);
-      console.log('Current protocol:', window.location.protocol);
-
-      // Utiliser l'URL WebSocket de production si définie
-      if (import.meta.env.VITE_WS_URL) {
-        wsUrl = import.meta.env.VITE_WS_URL;
-        console.log('Production WebSocket URL detected, using:', wsUrl);
-      } else if (host.includes('webcontainer-api.io') || host.includes('ws://localhost:3001')) {
-        // Environnement WebContainer
-        // Dans WebContainer, remplacer le port 5173 par 3001
-        const wsHost = host.replace('-5173.', '-3001.');
-        wsUrl = `${protocol}//${wsHost}`;
-        console.log('WebContainer environment detected, using:', wsUrl);
-      } else if (host.includes('localhost') || host.includes('127.0.0.1')) {
-        // Environnement local
-        wsUrl = `ws://localhost:3001`;
-        console.log('Local environment detected, using:', wsUrl);
-      } else {
-        // Autres environnements - essayer d'abord avec le même host
-        wsUrl = `${protocol}//${host}`;
-        console.log('Other environment detected, using:', wsUrl);
-      }
-
-      console.log('Attempting to connect to WebSocket:', wsUrl);
+      console.log('Connecting to WebSocket:', wsUrl);
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
