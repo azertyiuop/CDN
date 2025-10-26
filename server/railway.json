@@ -1,7 +1,17 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "nixpacksPlan": {
+      "phases": {
+        "setup": {
+          "nixPkgs": ["nodejs_20", "ffmpeg"]
+        },
+        "install": {
+          "cmds": ["npm ci"]
+        }
+      }
+    }
   },
   "deploy": {
     "startCommand": "node index.mjs",
