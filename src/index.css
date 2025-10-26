@@ -1,0 +1,272 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Animations personnalisées */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33% { transform: translateY(-10px) rotate(1deg); }
+  66% { transform: translateY(5px) rotate(-1deg); }
+}
+
+@keyframes gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.6); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.6); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 3s ease infinite;
+  will-change: background-position;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+  will-change: box-shadow;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+  will-change: box-shadow;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-gradient,
+  .animate-glow,
+  .animate-pulse-glow {
+    animation: none;
+  }
+}
+
+/* Scrollbar personnalisée pour le thème sombre */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scroll-behavior: auto;
+}
+
+.scrollbar-thumb-slate-600::-webkit-scrollbar-thumb {
+  background-color: rgb(71 85 105);
+  border-radius: 0.375rem;
+}
+
+.scrollbar-track-slate-800::-webkit-scrollbar-track {
+  background-color: rgb(30 41 59);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgb(71 85 105);
+  border-radius: 0.375rem;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background-color: rgb(30 41 59);
+}
+
+/* Animations d'entrée */
+@keyframes slide-in-from-left {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slide-in-from-top {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-in-from-bottom {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoom-in {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.slide-in-from-left-4 {
+  animation: slide-in-from-left 0.5s ease-out;
+}
+
+.slide-in-from-left-8 {
+  animation: slide-in-from-left 0.8s ease-out;
+}
+
+.slide-in-from-right-4 {
+  animation: slide-in-from-right 0.5s ease-out;
+}
+
+.slide-in-from-right-8 {
+  animation: slide-in-from-right 0.8s ease-out;
+}
+
+.slide-in-from-top-2 {
+  animation: slide-in-from-top 0.3s ease-out;
+}
+
+.slide-in-from-top-4 {
+  animation: slide-in-from-top 0.5s ease-out;
+}
+
+.slide-in-from-bottom-4 {
+  animation: slide-in-from-bottom 0.5s ease-out;
+}
+
+.fade-in-0 {
+  animation: fade-in 0.5s ease-out;
+}
+
+.zoom-in-95 {
+  animation: zoom-in 0.3s ease-out;
+}
+
+/* Effets de hover personnalisés */
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+  transition: box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  transition: transform 0.2s ease;
+}
+
+/* Glassmorphism */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Effets de particules */
+.particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Boutons avec effets */
+.btn-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-glow:hover::before {
+  left: 100%;
+}
+
+/* Cartes avec effets */
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Texte avec gradient animé */
+.text-gradient-animated {
+  background: linear-gradient(-45deg, #06b6d4, #8b5cf6, #ec4899, #06b6d4);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient 3s ease infinite;
+}
+
+/* Loading spinner personnalisé */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Effets de focus améliorés */
+.focus-glow:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+/* Transitions fluides */
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Effets de bordure animée */
+.border-gradient {
+  position: relative;
+  background: linear-gradient(45deg, #06b6d4, #8b5cf6);
+  padding: 2px;
+  border-radius: 12px;
+}
+
+.border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: rgb(15 23 42);
+  border-radius: 10px;
+  z-index: -1;
+}
