@@ -243,7 +243,18 @@ function App() {
   }, []);
 
 
-  // Ne plus bloquer l'accès, permettre la connexion depuis la page principale
+  // Page d'authentification obligatoire
+  if (!isAuthenticated) {
+    return (
+      <AuthPage
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        isLoading={isLoading}
+        error={authError}
+        success={authSuccess}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -308,32 +319,25 @@ function App() {
                 </div>
               )}
               
-              {/* Profil utilisateur ou bouton de connexion */}
-              {currentUser ? (
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <div className="text-white font-semibold">{currentUser.username}</div>
-                    <div className={`text-xs font-medium ${
-                      currentUser.role === 'admin' ? 'text-red-400' :
-                      currentUser.role === 'moderator' ? 'text-purple-400' :
-                      'text-slate-400'
-                    }`}>
-                      {currentUser.role?.toUpperCase()}
-                    </div>
+              {/* Profil utilisateur */}
+              <div className="flex items-center space-x-3">
+                <div className="text-right">
+                  <div className="text-white font-semibold">{currentUser?.username}</div>
+                  <div className={`text-xs font-medium ${
+                    currentUser?.role === 'admin' ? 'text-red-400' :
+                    currentUser?.role === 'moderator' ? 'text-purple-400' :
+                    'text-slate-400'
+                  }`}>
+                    {currentUser?.role?.toUpperCase()}
                   </div>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center space-x-2 text-slate-400 hover:text-red-400 transition-colors px-3 py-2 rounded-lg hover:bg-red-500/10 border border-slate-600/30 hover:border-red-500/30"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </button>
                 </div>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <Lock className="h-5 w-5 text-slate-400" />
-                  <span className="text-slate-400 text-sm font-medium">Non connecté</span>
-                </div>
-              )}
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 text-slate-400 hover:text-red-400 transition-colors px-3 py-2 rounded-lg hover:bg-red-500/10 border border-slate-600/30 hover:border-red-500/30"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -384,56 +388,6 @@ function App() {
         ) : (
           /* Page d'accueil moderne avec lecteur de stream */
           <div className="max-w-7xl mx-auto px-6 py-8">
-            {/* Section de connexion rapide en haut */}
-            {!currentUser && (
-              <div className="mb-8">
-                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
-                  <h2 className="text-2xl font-bold text-white mb-6 text-center">Connexion Rapide</h2>
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.currentTarget);
-                    handleLogin(formData.get('username') as string, formData.get('password') as string);
-                  }} className="space-y-4 max-w-md mx-auto">
-                    <div>
-                      <input
-                        type="text"
-                        name="username"
-                        placeholder="Nom d'utilisateur"
-                        required
-                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="password"
-                        name="password"
-                        placeholder="Mot de passe"
-                        required
-                        className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
-                      />
-                    </div>
-                    {authError && (
-                      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
-                        <p className="text-red-400 text-sm">{authError}</p>
-                      </div>
-                    )}
-                    {authSuccess && (
-                      <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
-                        <p className="text-green-400 text-sm">{authSuccess}</p>
-                      </div>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 text-white font-bold rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                    >
-                      {isLoading ? 'Connexion...' : 'Se Connecter'}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
-
             <div className="mb-8">
               <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl">
                 <div className="text-center mb-8">
