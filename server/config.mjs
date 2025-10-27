@@ -1,3 +1,6 @@
+const isProduction = process.env.NODE_ENV === 'production';
+const PORT = parseInt(process.env.PORT) || 3001;
+
 export const SERVER_CONFIG = {
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || 'BOLT_ANONYMOUS_2025',
 
@@ -11,10 +14,13 @@ export const SERVER_CONFIG = {
     'admin': 'admin123'
   },
 
-  WS_PORT: parseInt(process.env.PORT) || 3001,
-  API_PORT: parseInt(process.env.API_PORT) || 3002,
+  PORT: PORT,
+  WS_PORT: PORT,
+  API_PORT: isProduction ? PORT : (parseInt(process.env.API_PORT) || 3002),
   RTMP_PORT: parseInt(process.env.RTMP_PORT) || 1935,
-  HTTP_PORT: parseInt(process.env.HTTP_PORT) || 8003,
+  HTTP_PORT: isProduction ? PORT : (parseInt(process.env.HTTP_PORT) || 8003),
+
+  IS_PRODUCTION: isProduction,
 
   DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN || 'your_discord_bot_token_here',
   DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL || null,
