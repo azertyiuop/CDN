@@ -3,6 +3,7 @@ import { Shield, Crown, LogOut, Users, Radio, Zap, Globe, Lock, Activity, WifiOf
 import AuthPage from './components/AuthPage';
 import AdminPanelEnhanced from './components/AdminPanelEnhanced';
 import { AdminDashboard } from './components/AdminDashboard';
+import { AdminPanelSimple } from './components/AdminPanelSimple';
 import StreamPlayer from './components/StreamPlayer';
 import ChatBox from './components/ChatBox';
 import LegalMentionsPage from './components/LegalMentionsPage';
@@ -377,14 +378,18 @@ function App() {
         ) : currentPage === 'dmca' ? (
           <DMCAPage onBack={() => setCurrentPage('home')} />
         ) : currentPage === 'admin-new' && adminAccess ? (
-          <AdminDashboard />
+          <AdminPanelSimple currentUser={currentUser} />
         ) : currentPage === 'admin' && adminAccess ? (
-          <AdminPanelEnhanced
-            currentUser={currentUser}
-            connectedUsers={connectedUsers}
-            chatMessages={chatMessages}
-            wsService={wsServiceInstance}
-          />
+          wsConnectionStatus === 'connected' ? (
+            <AdminPanelEnhanced
+              currentUser={currentUser}
+              connectedUsers={connectedUsers}
+              chatMessages={chatMessages}
+              wsService={wsServiceInstance}
+            />
+          ) : (
+            <AdminPanelSimple currentUser={currentUser} />
+          )
         ) : (
           /* Page d'accueil moderne avec lecteur de stream */
           <div className="max-w-7xl mx-auto px-6 py-8">
