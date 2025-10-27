@@ -7,16 +7,25 @@ import StreamPlayer from './components/StreamPlayer';
 import ChatBox from './components/ChatBox';
 import LegalMentionsPage from './components/LegalMentionsPage';
 import DMCAPage from './components/DMCAPage';
+import LiveStreamListPage from './components/LiveStreamListPage';
 import { WebSocketService } from './services/websocket';
 import { User, ConnectedUser, ChatMessage, StreamSource } from './types';
 import { generateSecureId } from './utils';
 import { useAuth } from './contexts/AuthContext';
 
-type Page = 'home' | 'admin' | 'admin-new' | 'legal' | 'dmca';
+type Page = 'home' | 'live' | 'admin' | 'admin-new' | 'legal' | 'dmca';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentPage, setCurrentPage] = useState<Page>('home');
+  const [currentPage, setCurrentPage] = useState<Page>(() => {
+    const path = window.location.pathname;
+    if (path === '/live') return 'live';
+    if (path === '/admin') return 'admin';
+    if (path === '/admin-new') return 'admin-new';
+    if (path === '/legal') return 'legal';
+    if (path === '/dmca') return 'dmca';
+    return 'home';
+  });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [adminAccess, setAdminAccess] = useState(false);
   const [showAdminPrompt, setShowAdminPrompt] = useState(false);
@@ -34,6 +43,22 @@ function App() {
 
   // État du streaming
   const [currentStreamSource, setCurrentStreamSource] = useState<StreamSource | null>(null);
+
+  // Gestion de la navigation avec les boutons du navigateur
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path === '/live') setCurrentPage('live');
+      else if (path === '/admin') setCurrentPage('admin');
+      else if (path === '/admin-new') setCurrentPage('admin-new');
+      else if (path === '/legal') setCurrentPage('legal');
+      else if (path === '/dmca') setCurrentPage('dmca');
+      else setCurrentPage('home');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Initialisation WebSocket
   useEffect(() => {
@@ -226,12 +251,25 @@ function App() {
     setAdminCode('');
   };
 
+  const navigateToPage = (page: Page) => {
+    setCurrentPage(page);
+    const paths: Record<Page, string> = {
+      home: '/',
+      live: '/live',
+      admin: '/admin',
+      'admin-new': '/admin-new',
+      legal: '/legal',
+      dmca: '/dmca'
+    };
+    window.history.pushState({}, '', paths[page]);
+  };
+
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
     setAdminAccess(false);
     sessionStorage.clear();
-    setCurrentPage('home');
+    navigateToPage('home');
   };
 
   const handleStreamSourceChange = useCallback((source: StreamSource | null) => {
@@ -275,6 +313,30 @@ function App() {
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* Navigation pages */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => navigateToPage('home')}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-semibold transition-all ${
+                    currentPage === 'home'
+                      ? 'bg-slate-800 text-white'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  Accueil
+                </button>
+                <button
+                  onClick={() => navigateToPage('live')}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-semibold transition-all ${
+                    currentPage === 'live'
+                      ? 'bg-slate-800 text-white'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  Live
+                </button>
+              </div>
+
               {/* Statistiques en temps réel */}
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2 px-4 py-2 bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl">
@@ -282,7 +344,7 @@ function App() {
                   <Users className="h-4 w-4 text-slate-400" />
                   <span className="text-sm text-slate-300 font-medium">{activeUsers}</span>
                 </div>
-                
+
                 {currentStreamSource && (
                   <div className="flex items-center space-x-2 px-4 py-2 bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl">
                     <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
@@ -291,11 +353,11 @@ function App() {
                   </div>
                 )}
               </div>
-              
+
               {adminAccess && (
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => setCurrentPage(currentPage === 'admin' ? 'home' : 'admin')}
+                    onClick={() => navigateToPage(currentPage === 'admin' ? 'home' : 'admin')}
                     className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-semibold transition-all transform hover:scale-105 ${
                       currentPage === 'admin'
                         ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg shadow-red-500/25'
@@ -306,7 +368,7 @@ function App() {
                     <span>Admin</span>
                   </button>
                   <button
-                    onClick={() => setCurrentPage(currentPage === 'admin-new' ? 'home' : 'admin-new')}
+                    onClick={() => navigateToPage(currentPage === 'admin-new' ? 'home' : 'admin-new')}
                     className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-semibold transition-all transform hover:scale-105 ${
                       currentPage === 'admin-new'
                         ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/25'
@@ -372,10 +434,12 @@ function App() {
 
       {/* Contenu principal */}
       <main className="animate-in fade-in-0 duration-500">
-        {currentPage === 'legal' ? (
-          <LegalMentionsPage onBack={() => setCurrentPage('home')} />
+        {currentPage === 'live' ? (
+          <LiveStreamListPage currentUser={currentUser} onBack={() => navigateToPage('home')} />
+        ) : currentPage === 'legal' ? (
+          <LegalMentionsPage onBack={() => navigateToPage('home')} />
         ) : currentPage === 'dmca' ? (
-          <DMCAPage onBack={() => setCurrentPage('home')} />
+          <DMCAPage onBack={() => navigateToPage('home')} />
         ) : currentPage === 'admin-new' && adminAccess ? (
           <AdminDashboard />
         ) : currentPage === 'admin' && adminAccess ? (
@@ -499,7 +563,14 @@ function App() {
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="text-center md:text-left">
                     <p className="text-slate-400 text-sm">
-                      © {new Date().getFullYear()} ABD Stream. Tous droits réservés.
+                      © {new Date().getFullYear()} ABD Stream. Tous droits réservés
+                      <span
+                        onClick={() => setShowAdminPrompt(true)}
+                        className="cursor-pointer hover:text-red-400 transition-colors"
+                        title="Accès Admin"
+                      >
+                        .
+                      </span>
                     </p>
                     <p className="text-slate-500 text-xs mt-1">
                       Plateforme de streaming sécurisée et anonyme
@@ -526,6 +597,51 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* Modal de connexion admin */}
+      {showAdminPrompt && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <h2 className="text-2xl font-bold text-white mb-4">Accès Administrateur</h2>
+            <p className="text-slate-400 mb-6">Entrez le code d'accès administrateur</p>
+            <form onSubmit={handleAdminAccess}>
+              <input
+                type="password"
+                value={adminCode}
+                onChange={(e) => setAdminCode(e.target.value)}
+                placeholder="Code d'accès"
+                className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 mb-4"
+                autoFocus
+              />
+              {authError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-4">
+                  <p className="text-red-400 text-sm">{authError}</p>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminPrompt(false);
+                    setAdminCode('');
+                    setAuthError('');
+                  }}
+                  className="flex-1 px-4 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl hover:shadow-lg hover:shadow-red-500/25 transition-all disabled:opacity-50"
+                >
+                  {isLoading ? 'Vérification...' : 'Valider'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

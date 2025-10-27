@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, Activity, Settings, Ban, VolumeX, Trash2, Eye, Crown, Search, RefreshCw, TrendingUp, BarChart3, Globe, Edit, Save, X, Megaphone, Target, MessageSquare, Download, Filter } from 'lucide-react';
+import { Shield, Users, Activity, Settings, Ban, VolumeX, Trash2, Eye, Crown, Search, RefreshCw, TrendingUp, BarChart3, Globe, Edit, Save, X, Megaphone, Target, MessageSquare, Download, Filter, Radio, Play, Plus } from 'lucide-react';
 import { ConnectedUser, ChatMessage } from '../types';
 import { formatTime } from '../utils';
 
@@ -16,7 +16,7 @@ const AdminPanelEnhanced: React.FC<AdminPanelEnhancedProps> = ({
   chatMessages,
   wsService
 }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'moderation' | 'chat' | 'logs' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'moderation' | 'chat' | 'streams' | 'logs' | 'settings'>('dashboard');
 
   // États des données admin
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
@@ -42,6 +42,24 @@ const AdminPanelEnhanced: React.FC<AdminPanelEnhancedProps> = ({
   const [banDuration, setBanDuration] = useState('permanent');
   const [muteReason, setMuteReason] = useState('');
   const [muteDuration, setMuteDuration] = useState('60');
+
+  // États pour la gestion des streams m3u
+  const [m3uStreams, setM3uStreams] = useState<any[]>([]);
+  const [showAddStreamModal, setShowAddStreamModal] = useState(false);
+  const [newStreamName, setNewStreamName] = useState('');
+  const [newStreamUrl, setNewStreamUrl] = useState('');
+
+  // Charger les streams depuis localStorage
+  useEffect(() => {
+    const storedStreams = localStorage.getItem('m3u_streams');
+    if (storedStreams) {
+      try {
+        setM3uStreams(JSON.parse(storedStreams));
+      } catch (error) {
+        console.error('Error loading streams:', error);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!wsService) return;
@@ -89,6 +107,48 @@ const AdminPanelEnhanced: React.FC<AdminPanelEnhancedProps> = ({
       }
     };
   }, [wsService]);
+
+  // Fonctions de gestion des streams m3u
+  const handleAddStream = () => {
+    if (!newStreamName.trim() || !newStreamUrl.trim()) {
+      alert('Veuillez remplir tous les champs');
+      return;
+    }
+
+    const newStream = {
+      id: `stream_${Date.now()}`,
+      name: newStreamName,
+      url: newStreamUrl,
+      type: 'm3u8',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser?.username || 'Admin'
+    };
+
+    const updatedStreams = [...m3uStreams, newStream];
+    setM3uStreams(updatedStreams);
+    localStorage.setItem('m3u_streams', JSON.stringify(updatedStreams));
+
+    setShowAddStreamModal(false);
+    setNewStreamName('');
+    setNewStreamUrl('');
+  };
+
+  const handleDeleteStream = (streamId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce stream ?')) return;
+
+    const updatedStreams = m3uStreams.filter(s => s.id !== streamId);
+    setM3uStreams(updatedStreams);
+    localStorage.setItem('m3u_streams', JSON.stringify(updatedStreams));
+  };
+
+  const handleToggleStreamActive = (streamId: string) => {
+    const updatedStreams = m3uStreams.map(s =>
+      s.id === streamId ? { ...s, isActive: !s.isActive } : s
+    );
+    setM3uStreams(updatedStreams);
+    localStorage.setItem('m3u_streams', JSON.stringify(updatedStreams));
+  };
 
   const handleBanUser = () => {
     if (!selectedUser || !wsService) return;
@@ -222,6 +282,7 @@ const AdminPanelEnhanced: React.FC<AdminPanelEnhancedProps> = ({
             { id: 'users', icon: Users, label: 'Utilisateurs Connectés' },
             { id: 'moderation', icon: Shield, label: 'Modération' },
             { id: 'chat', icon: MessageSquare, label: 'Messages' },
+            { id: 'streams', icon: Radio, label: 'Streams M3U' },
             { id: 'logs', icon: Activity, label: 'Logs' },
             { id: 'settings', icon: Settings, label: 'Paramètres' }
           ].map(tab => (
@@ -521,6 +582,92 @@ const AdminPanelEnhanced: React.FC<AdminPanelEnhancedProps> = ({
           </div>
         )}
 
+        {/* Streams M3U Tab */}
+        {activeTab === 'streams' && (
+          <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold">Gestion des Streams M3U</h3>
+              <button
+                onClick={() => setShowAddStreamModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/25 transition-all"
+              >
+                <Plus className="h-5 w-5" />
+                Ajouter un stream
+              </button>
+            </div>
+
+            {m3uStreams.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">
+                <Radio className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                <p className="text-lg mb-2">Aucun stream configuré</p>
+                <p className="text-sm">Cliquez sur "Ajouter un stream" pour commencer</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {m3uStreams.map((stream) => (
+                  <div
+                    key={stream.id}
+                    className="bg-slate-900/50 border border-slate-700 rounded-xl p-6"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          stream.isActive
+                            ? 'bg-gradient-to-br from-purple-500 to-fuchsia-500'
+                            : 'bg-slate-700'
+                        }`}>
+                          <Play className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <h4 className="text-white font-bold text-lg">{stream.name}</h4>
+                          <span className="text-xs text-slate-400 uppercase">{stream.type}</span>
+                        </div>
+                      </div>
+                      {stream.isActive && (
+                        <div className="flex items-center gap-1 bg-red-500/20 px-2 py-1 rounded-lg">
+                          <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                          <span className="text-red-400 text-xs font-medium">ACTIF</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      <div className="text-sm text-slate-400">
+                        <span className="font-medium">URL:</span>
+                        <div className="mt-1 p-2 bg-slate-800 rounded text-xs break-all">
+                          {stream.url}
+                        </div>
+                      </div>
+                      <div className="text-sm text-slate-400">
+                        Créé le {new Date(stream.createdAt).toLocaleDateString()} par {stream.createdBy}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleToggleStreamActive(stream.id)}
+                        className={`flex-1 py-2 rounded-xl font-medium transition-all ${
+                          stream.isActive
+                            ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'
+                            : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                        }`}
+                      >
+                        {stream.isActive ? 'Désactiver' : 'Activer'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStream(stream.id)}
+                        className="px-4 py-2 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-all"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Modals */}
         {showBanModal && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
@@ -600,6 +747,65 @@ const AdminPanelEnhanced: React.FC<AdminPanelEnhancedProps> = ({
                   className="flex-1 px-6 py-3 bg-orange-500 rounded-xl disabled:opacity-50"
                 >
                   Mute
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal d'ajout de stream */}
+        {showAddStreamModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+            <div className="bg-slate-900 rounded-2xl p-6 max-w-lg w-full mx-4">
+              <h3 className="text-2xl font-bold mb-6">Ajouter un Stream M3U</h3>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Nom du stream
+                  </label>
+                  <input
+                    type="text"
+                    value={newStreamName}
+                    onChange={(e) => setNewStreamName(e.target.value)}
+                    className="w-full p-4 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
+                    placeholder="Ex: Canal Sport HD"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    URL M3U8
+                  </label>
+                  <input
+                    type="url"
+                    value={newStreamUrl}
+                    onChange={(e) => setNewStreamUrl(e.target.value)}
+                    className="w-full p-4 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
+                    placeholder="https://example.com/stream.m3u8"
+                  />
+                </div>
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                  <p className="text-blue-400 text-sm">
+                    ℹ️ Assurez-vous que l'URL est accessible et pointe vers un fichier .m3u8 valide
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowAddStreamModal(false);
+                    setNewStreamName('');
+                    setNewStreamUrl('');
+                  }}
+                  className="flex-1 px-6 py-3 bg-slate-800 text-slate-300 rounded-xl hover:bg-slate-700 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleAddStream}
+                  disabled={!newStreamName.trim() || !newStreamUrl.trim()}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50"
+                >
+                  Ajouter
                 </button>
               </div>
             </div>
