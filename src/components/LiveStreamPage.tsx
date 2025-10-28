@@ -13,6 +13,9 @@ interface StreamPlayerProps {
   overlaySrc?: string;         // Le chemin vers votre image (URL ou chemin local)
   overlayPosition?: OverlayPosition; // La position de l'overlay
   overlaySize?: string;        // La taille de l'overlay (ex: "w-16 h-16", "w-24 h-24")
+  // --- NOUVELLES PROPS POUR LA QUALITÉ ET LE NOM ---
+  quality?: 'auto' | number | string; // 'auto' | index (number) | résolution string comme '720' ou '1080'
+  showStreamName?: boolean; // false pour ne pas afficher le nom du live dans le player
 }
 
 const StreamPlayer: React.FC<StreamPlayerProps> = ({
@@ -21,6 +24,9 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
   overlaySrc,
   overlayPosition = 'top-right', // Position par défaut
   overlaySize = 'w-16 h-16'      // Taille par défaut (64x64px)
+  ,
+  quality = 'auto',
+  showStreamName = true
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -53,20 +59,58 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
 
   // --- Fonction pour formater le label de la qualité ---
   const getQualityLabel = (level: any) => {
+    if (!level) return 'Auto';
     if (level.height) {
       return `${level.height}p`;
     }
-    return 'Auto';
+    if (level.bitrate) {
+      return `${Math.round(level.bitrate/1000)}kbps`;
+    }
+    return 'Qualité';
   };
 
   // --- Fonction pour gérer le changement de qualité ---
   const handleQualityChange = (levelIndex: number) => {
     if (hlsRef.current) {
+      // -1 = auto (abrégé par Hls)
       hlsRef.current.currentLevel = levelIndex;
       setCurrentQuality(levelIndex);
       setIsQualityDropdownOpen(false);
     }
   };
+
+  // Appliquer la qualité demandée depuis le prop `quality`
+  useEffect(() => {
+    if (!hlsRef.current || availableQualities.length === 0) return;
+    const hls = hlsRef.current;
+
+    if (quality === 'auto' || quality === -1) {
+      hls.currentLevel = -1;
+      setCurrentQuality(-1);
+      return;
+    }
+
+    // si quality est un index numérique
+    if (typeof quality === 'number') {
+      const idx = quality;
+      if (idx >= -1 && idx < availableQualities.length) {
+        hls.currentLevel = idx;
+        setCurrentQuality(idx);
+      }
+      return;
+    }
+
+    // si quality est une string de résolution comme "720" ou "720p"
+    const qStr = String(quality).replace(/p$/i, '');
+    const desiredHeight = parseInt(qStr, 10);
+    if (!isNaN(desiredHeight)) {
+      const matchIdx = availableQualities.findIndex(l => l.height === desiredHeight);
+      if (matchIdx !== -1) {
+        hls.currentLevel = matchIdx;
+        setCurrentQuality(matchIdx);
+      }
+    }
+  }, [quality, availableQualities]);
 
   useEffect(() => {
     if (source && videoRef.current) {
@@ -121,7 +165,27 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
             // --- Initialiser les qualités disponibles ---
             setAvailableQualities(hls.levels);
             setCurrentQuality(hls.currentLevel);
-            video.play().catch(err => console.log('Auto-play prevented:', err));
+            // Si un prop `quality` est fourni, on l'applique après parsing
+            if (quality === 'auto' || quality === -1) {
+              hls.currentLevel = -1;
+              setCurrentQuality(-1);
+            } else if (typeof quality === 'number') {
+              if (quality >= -1 && quality < hls.levels.length) {
+                hls.currentLevel = quality;
+                setCurrentQuality(quality);
+              }
+            } else if (typeof quality === 'string') {
+              const qStr = quality.replace(/p$/i, '');
+              const desiredHeight = parseInt(qStr, 10);
+              if (!isNaN(desiredHeight)) {
+                const matchIdx = hls.levels.findIndex((l: any) => l.height === desiredHeight);
+                if (matchIdx !== -1) {
+                  hls.currentLevel = matchIdx;
+                  setCurrentQuality(matchIdx);
+                }
+              }
+            }
+             video.play().catch(err => console.log('Auto-play prevented:', err));
           });
 
           // --- Mettre à jour la qualité actuelle lors d'un changement automatique ---
@@ -403,6 +467,15 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
               EN DIRECT
             </div>
           </div>
+
+          {/* Nom du stream (peut être caché via la prop showStreamName) */}
+          {showStreamName && source?.name && (
+            <div className="absolute top-6 right-6 z-20">
+              <div className="bg-black/60 text-white px-3 py-2 rounded-lg text-sm font-medium backdrop-blur-sm border border-white/10">
+                {source.name}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
