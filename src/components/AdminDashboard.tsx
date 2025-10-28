@@ -1,565 +1,315 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Users, MessageCircle, Activity, TrendingUp, Shield, Ban,
-  VolumeX, Trash2, Search, RefreshCw, BarChart3, Clock,
-  AlertTriangle, CheckCircle, XCircle, Eye, Settings
+import { 
+  Shield, 
+  Users, 
+  MessageCircle, 
+  Activity, 
+  Settings,
+  Eye,
+  Ban,
+  Trash2,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Plus,
+  Edit, // L'icône Edit est déjà là
+  Save,
+  X,
+  Crown,
+  Sparkles,
+  VolumeX,
+  Key,
+  Play,
+  UserCheck,
+  Image,
+  FileText
 } from 'lucide-react';
-import { apiService } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { ChatMessage, ConnectedUser, StreamLog, Report, PopupAnnouncement, StreamKey } from '../types';
 
-export const AdminDashboard: React.FC = () => {
-  const { user, isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'moderation' | 'messages' | 'analytics'>('dashboard');
-  const [dashboardStats, setDashboardStats] = useState<any>(null);
-  const [users, setUsers] = useState<any[]>([]);
+interface AdminPageProps {
+  allChatMessages: ChatMessage[];
+  allConnectedUsers: ConnectedUser[];
+  wsService: any;
+  onDeleteMessage: (messageId: string) => void;
+  onMuteUser: (username: string, moderatorUsername: string) => void;
+  onBanUser: (username: string, moderatorUsername: string) => void;
+  liveStreamActive: boolean;
+  onBack: () => void;
+}
+
+const AdminPage: React.FC<AdminPageProps> = ({
+  allChatMessages,
+  allConnectedUsers,
+  wsService,
+  onDeleteMessage,
+  onMuteUser,
+  onBanUser,
+  liveStreamActive,
+  onBack
+}) => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'chat' | 'logs' | 'reports' | 'announcements' | 'streams' | 'roles'>('overview');
+  const [streamLogs, setStreamLogs] = useState<StreamLog[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [announcements, setAnnouncements] = useState<PopupAnnouncement[]>([]);
+  const [streamKeys, setStreamKeys] = useState<StreamKey[]>([]);
+  const [showNewStreamKey, setShowNewStreamKey] = useState(false);
+  
+  // --- ÉTAT POUR L'ÉDITION ---
+  const [editingStream, setEditingStream] = useState<StreamKey | null>(null);
+  const [editFormData, setEditFormData] = useState({ name: '', url: '' });
+
+  const [newStreamKey, setNewStreamKey] = useState({
+    key: '',
+    title: '',
+    description: '',
+    thumbnail: ''
+  });
   const [bannedUsers, setBannedUsers] = useState<any[]>([]);
   const [mutedUsers, setMutedUsers] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [connectedUsers, setConnectedUsers] = useState<any[]>([]);
-  const [activityLogs, setActivityLogs] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showBanManagement, setShowBanManagement] = useState(false);
+  const [adminResponse, setAdminResponse] = useState<string>('');
 
   useEffect(() => {
-    if (isAdmin) {
-      loadDashboardData();
+    const savedReports = JSON.parse(localStorage.getItem('chatReports') || '[]');
+    const savedAnnouncements = JSON.parse(localStorage.getItem('popupAnnouncements') || '[]');
+    const savedStreamKeys = JSON.parse(localStorage.getItem('streamKeys') || '[]');
+    
+    setReports(savedReports);
+    setAnnouncements(savedAnnouncements);
+    setStreamKeys(savedStreamKeys);
+
+    const mockLogs: StreamLog[] = [
+      { id: '1', action: 'USER_CONNECT', details: 'Nouvel utilisateur connecté', timestamp: new Date(Date.now() - 600000), username: 'Anonyme_123', ip: '192.168.1.45' },
+      { id: '2', action: 'MESSAGE_SENT', details: 'Message envoyé dans le chat', timestamp: new Date(Date.now() - 300000), username: 'Ghost_456' }
+    ];
+    setStreamLogs(mockLogs);
+  }, []);
+
+  useEffect(() => {
+    if (wsService) {
+      const originalCallback = wsService.onMessageCallback;
+      wsService.onMessageCallback = (data) => {
+        if (originalCallback) originalCallback(data);
+        if (data.type === 'admin_response') {
+          setAdminResponse(data.message);
+          if (data.command === 'list_banned' && data.success) { setBannedUsers(data.data || []); }
+          else if (data.command === 'list_muted' && data.success) { setMutedUsers(data.data || []); }
+          setTimeout(() => setAdminResponse(''), 5000);
+        }
+      };
     }
-  }, [isAdmin, activeTab]);
+  }, [wsService]);
 
-  const loadDashboardData = async () => {
-    setLoading(true);
+  // --- FONCTION POUR GÉRER L'ÉDITION ---
+  const handleEditClick = (stream: StreamKey) => {
+    setEditingStream(stream);
+    setEditFormData({ name: stream.title, url: stream.key });
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleUpdateStream = async () => {
+    if (!editingStream) return;
+
     try {
-      if (activeTab === 'dashboard') {
-        const statsResult = await apiService.getDashboardStats();
-        if (statsResult.success) {
-          setDashboardStats(statsResult.stats);
-        }
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/streams/${editingStream.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editFormData.name, url: editFormData.url }),
+      });
 
-        const connectedResult = await apiService.getConnectedUsers();
-        if (connectedResult.success) {
-          setConnectedUsers(connectedResult.users);
-        }
-      } else if (activeTab === 'users') {
-        const usersResult = await apiService.getAllUsers();
-        if (usersResult.success) {
-          setUsers(usersResult.users);
-        }
-      } else if (activeTab === 'moderation') {
-        const bannedResult = await apiService.getBannedUsers();
-        if (bannedResult.success) {
-          setBannedUsers(bannedResult.users);
-        }
+      const data = await response.json();
 
-        const mutedResult = await apiService.getMutedUsers();
-        if (mutedResult.success) {
-          setMutedUsers(mutedResult.users);
-        }
-      } else if (activeTab === 'messages') {
-        const messagesResult = await apiService.getChatMessages(100);
-        if (messagesResult.success) {
-          setMessages(messagesResult.messages);
-        }
-      } else if (activeTab === 'analytics') {
-        const logsResult = await apiService.getActivityLogs(50);
-        if (logsResult.success) {
-          setActivityLogs(logsResult.logs);
-        }
+      if (data.success) {
+        // Mettre à jour l'état local et le localStorage
+        const updatedStreams = streamKeys.map(sk =>
+          sk.id === editingStream.id ? { ...sk, title: editFormData.name, key: editFormData.url } : sk
+        );
+        setStreamKeys(updatedStreams);
+        localStorage.setItem('streamKeys', JSON.stringify(updatedStreams));
+        
+        // Réinitialiser le formulaire d'édition
+        setEditingStream(null);
+        setEditFormData({ name: '', url: '' });
+        alert('Flux mis à jour avec succès !');
+      } else {
+        alert(`Erreur: ${data.error}`);
       }
     } catch (error) {
-      console.error('Erreur chargement données:', error);
-      showNotification('error', 'Erreur lors du chargement des données');
-    } finally {
-      setLoading(false);
+      console.error('Erreur lors de la mise à jour du flux:', error);
+      alert('Une erreur est survenue lors de la mise à jour.');
     }
   };
 
-  const showNotification = (type: 'success' | 'error', message: string) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 5000);
-  };
+  const handleDeleteStream = async (streamId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce flux ?')) return;
 
-  const handleUnban = async (fingerprint: string, ip: string) => {
-    const result = await apiService.unbanUser(fingerprint, ip);
-    if (result.success) {
-      showNotification('success', 'Utilisateur débanni avec succès');
-      loadDashboardData();
-    } else {
-      showNotification('error', result.error || 'Erreur lors du débannissement');
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/streams/${streamId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const updatedStreams = streamKeys.filter(sk => sk.id !== streamId);
+        setStreamKeys(updatedStreams);
+        localStorage.setItem('streamKeys', JSON.stringify(updatedStreams));
+        alert('Flux supprimé avec succès !');
+      } else {
+        alert(`Erreur: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression du flux:', error);
+      alert('Une erreur est survenue lors de la suppression.');
     }
   };
 
-  const handleUnmute = async (fingerprint: string) => {
-    const result = await apiService.unmuteUser(fingerprint);
-    if (result.success) {
-      showNotification('success', 'Utilisateur démute avec succès');
-      loadDashboardData();
-    } else {
-      showNotification('error', result.error || 'Erreur lors du démute');
+  const createStreamKey = () => {
+    if (newStreamKey.key && newStreamKey.title) {
+      const streamKey: StreamKey = {
+        id: Date.now().toString(),
+        key: newStreamKey.key,
+        title: newStreamKey.title,
+        description: newStreamKey.description,
+        thumbnail: newStreamKey.thumbnail || 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=800&h=450&dpr=1',
+        isActive: false,
+        createdBy: 'Admin',
+        createdAt: new Date(),
+        viewers: 0,
+        duration: 0
+      };
+      const updatedStreamKeys = [...streamKeys, streamKey];
+      setStreamKeys(updatedStreamKeys);
+      localStorage.setItem('streamKeys', JSON.stringify(updatedStreamKeys));
+      setNewStreamKey({ key: '', title: '', description: '', thumbnail: '' });
+      setShowNewStreamKey(false);
     }
   };
 
-  const handleDeleteMessage = async (messageId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce message ?')) return;
-
-    const result = await apiService.deleteMessage(messageId);
-    if (result.success) {
-      showNotification('success', 'Message supprimé avec succès');
-      loadDashboardData();
-    } else {
-      showNotification('error', result.error || 'Erreur lors de la suppression');
-    }
-  };
-
-  const handleChangeRole = async (userId: string, newRole: string) => {
-    if (!confirm(`Êtes-vous sûr de vouloir changer le rôle en ${newRole} ?`)) return;
-
-    const result = await apiService.changeUserRole(userId, newRole);
-    if (result.success) {
-      showNotification('success', 'Rôle modifié avec succès');
-      loadDashboardData();
-    } else {
-      showNotification('error', result.error || 'Erreur lors du changement de rôle');
-    }
-  };
-
-  const renderDashboard = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
-              <Users className="h-6 w-6 text-blue-400" />
-            </div>
-            <TrendingUp className="h-5 w-5 text-green-400" />
-          </div>
-          <div className="text-3xl font-bold text-white mb-1">
-            {dashboardStats?.users.online || 0}
-          </div>
-          <div className="text-sm text-slate-400">Utilisateurs en ligne</div>
-          <div className="mt-2 text-xs text-slate-500">
-            {dashboardStats?.users.total || 0} total
-          </div>
-        </div>
-
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
-              <MessageCircle className="h-6 w-6 text-green-400" />
-            </div>
-            <Activity className="h-5 w-5 text-green-400" />
-          </div>
-          <div className="text-3xl font-bold text-white mb-1">
-            {dashboardStats?.messages.today || 0}
-          </div>
-          <div className="text-sm text-slate-400">Messages aujourd'hui</div>
-          <div className="mt-2 text-xs text-slate-500">
-            {dashboardStats?.messages.total || 0} total
-          </div>
-        </div>
-
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
-              <Activity className="h-6 w-6 text-purple-400" />
-            </div>
-            <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-          </div>
-          <div className="text-3xl font-bold text-white mb-1">
-            {dashboardStats?.streams.active || 0}
-          </div>
-          <div className="text-sm text-slate-400">Streams actifs</div>
-          <div className="mt-2 text-xs text-slate-500">
-            {dashboardStats?.streams.totalToday || 0} aujourd'hui
-          </div>
-        </div>
-
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center">
-              <Shield className="h-6 w-6 text-red-400" />
-            </div>
-            <AlertTriangle className="h-5 w-5 text-orange-400" />
-          </div>
-          <div className="text-3xl font-bold text-white mb-1">
-            {dashboardStats?.moderation.bannedUsers || 0}
-          </div>
-          <div className="text-sm text-slate-400">Utilisateurs bannis</div>
-          <div className="mt-2 text-xs text-slate-500">
-            {dashboardStats?.moderation.mutedUsers || 0} mutes
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <Users className="h-5 w-5 mr-2 text-blue-400" />
-            Utilisateurs Connectés ({connectedUsers.length})
-          </h3>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {connectedUsers.slice(0, 10).map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <div>
-                    <div className="text-white font-medium">{user.username}</div>
-                    <div className="text-xs text-slate-500">{user.page}</div>
-                  </div>
-                </div>
-                <div className="text-xs text-slate-400 font-mono">{user.ip}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <Activity className="h-5 w-5 mr-2 text-purple-400" />
-            Activité Récente
-          </h3>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {activityLogs.slice(0, 10).map((log) => (
-              <div key={log.id} className="p-3 bg-slate-900/50 rounded-lg">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-white text-sm font-medium">{log.action_type}</span>
-                  <span className="text-xs text-slate-500">
-                    {new Date(log.created_at).toLocaleTimeString('fr-FR')}
-                  </span>
-                </div>
-                <div className="text-xs text-slate-400">
-                  {log.username && `Utilisateur: ${log.username}`}
-                  {log.admin_username && ` - Par: ${log.admin_username}`}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderUsers = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-2xl font-bold text-white">Gestion des Utilisateurs</h3>
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Rechercher un utilisateur..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <button
-            onClick={loadDashboardData}
-            className="p-2 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors"
-          >
-            <RefreshCw className="h-5 w-5 text-slate-400" />
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700 bg-slate-900/50">
-                <th className="text-left p-4 text-slate-400 font-medium">Utilisateur</th>
-                <th className="text-left p-4 text-slate-400 font-medium">Rôle</th>
-                <th className="text-left p-4 text-slate-400 font-medium">Créé le</th>
-                <th className="text-left p-4 text-slate-400 font-medium">Dernière connexion</th>
-                <th className="text-left p-4 text-slate-400 font-medium">Statut</th>
-                <th className="text-left p-4 text-slate-400 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users
-                .filter(u => searchQuery === '' || u.username.toLowerCase().includes(searchQuery.toLowerCase()))
-                .map((user) => (
-                <tr key={user.id} className="border-b border-slate-700 hover:bg-slate-900/30">
-                  <td className="p-4 text-white font-medium">{user.username}</td>
-                  <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      user.role === 'admin' || user.role === 'owner' ? 'bg-red-500/20 text-red-400' :
-                      user.role === 'moderator' ? 'bg-purple-500/20 text-purple-400' :
-                      'bg-slate-500/20 text-slate-400'
-                    }`}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="p-4 text-slate-400 text-sm">
-                    {new Date(user.created_at).toLocaleDateString('fr-FR')}
-                  </td>
-                  <td className="p-4 text-slate-400 text-sm">
-                    {user.last_login ? new Date(user.last_login).toLocaleDateString('fr-FR') : 'Jamais'}
-                  </td>
-                  <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      user.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                    }`}>
-                      {user.is_active ? 'Actif' : 'Inactif'}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center space-x-2">
-                      <select
-                        value={user.role}
-                        onChange={(e) => handleChangeRole(user.id, e.target.value)}
-                        className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm"
-                      >
-                        <option value="viewer">Viewer</option>
-                        <option value="moderator">Moderator</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderModeration = () => (
-    <div className="space-y-6">
-      <h3 className="text-2xl font-bold text-white">Modération</h3>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-          <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <Ban className="h-5 w-5 mr-2 text-red-400" />
-            Utilisateurs Bannis ({bannedUsers.length})
-          </h4>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {bannedUsers.map((user) => (
-              <div key={user.id} className="p-4 bg-slate-900/50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <div className="text-white font-medium">{user.username || 'Anonyme'}</div>
-                    <div className="text-xs text-slate-400 font-mono">{user.ip}</div>
-                  </div>
-                  <button
-                    onClick={() => handleUnban(user.fingerprint, user.ip)}
-                    className="px-3 py-1 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors text-sm"
-                  >
-                    Débannir
-                  </button>
-                </div>
-                <div className="text-xs text-slate-500">
-                  Banni le: {new Date(user.banned_at).toLocaleString('fr-FR')}
-                </div>
-                {user.reason && (
-                  <div className="text-xs text-slate-400 mt-1">Raison: {user.reason}</div>
-                )}
-              </div>
-            ))}
-            {bannedUsers.length === 0 && (
-              <div className="text-center py-8 text-slate-500">
-                Aucun utilisateur banni
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-          <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <VolumeX className="h-5 w-5 mr-2 text-orange-400" />
-            Utilisateurs Mute ({mutedUsers.length})
-          </h4>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {mutedUsers.map((user) => (
-              <div key={user.id} className="p-4 bg-slate-900/50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <div className="text-white font-medium">{user.username || 'Anonyme'}</div>
-                    <div className="text-xs text-slate-400 font-mono">{user.ip}</div>
-                  </div>
-                  <button
-                    onClick={() => handleUnmute(user.fingerprint)}
-                    className="px-3 py-1 bg-green-500/20 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors text-sm"
-                  >
-                    Démute
-                  </button>
-                </div>
-                <div className="text-xs text-slate-500">
-                  Expire: {new Date(user.mute_end_time).toLocaleString('fr-FR')}
-                </div>
-                {user.reason && (
-                  <div className="text-xs text-slate-400 mt-1">Raison: {user.reason}</div>
-                )}
-              </div>
-            ))}
-            {mutedUsers.length === 0 && (
-              <div className="text-center py-8 text-slate-500">
-                Aucun utilisateur mute
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderMessages = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-2xl font-bold text-white">Messages du Chat</h3>
+  const renderStreams = () => (
+    <div className="glass-dark border border-slate-700/50 rounded-2xl p-8">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-2xl font-semibold text-white">Gestion des Flux</h3>
         <button
-          onClick={loadDashboardData}
-          className="p-2 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors"
+          onClick={() => setShowNewStreamKey(true)}
+          className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors flex items-center space-x-2"
         >
-          <RefreshCw className="h-5 w-5 text-slate-400" />
+          <Plus className="h-5 w-5" />
+          Ajouter un flux
         </button>
       </div>
 
-      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-        <div className="space-y-3 max-h-[600px] overflow-y-auto">
-          {messages.map((message) => (
-            <div key={message.id} className="p-4 bg-slate-900/50 rounded-lg hover:bg-slate-900/70 transition-colors">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-white font-medium">{message.username}</span>
-                  {message.role !== 'viewer' && (
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${
-                      message.role === 'admin' ? 'bg-red-500/20 text-red-400' :
-                      'bg-purple-500/20 text-purple-400'
-                    }`}>
-                      {message.role}
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-500">
-                    {new Date(message.timestamp).toLocaleString('fr-FR')}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleDeleteMessage(message.id)}
-                  className="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors"
-                  title="Supprimer"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-              <p className="text-slate-300 text-sm">{message.message}</p>
-              {message.ip && (
-                <div className="text-xs text-slate-500 font-mono mt-1">{message.ip}</div>
-              )}
+      {/* --- FORMULAIRE D'ÉDITION (s'affiche si un flux est en cours d'édition) --- */}
+      {editingStream && (
+        <div className="mb-6 p-4 bg-slate-800/50 border border-violet-500/50 rounded-xl">
+          <h4 className="text-lg font-semibold text-white mb-4">Modifier le flux</h4>
+          <div className="space-y-4">
+            <input
+              type="text"
+              name="name"
+              value={editFormData.name}
+              onChange={handleEditChange}
+              placeholder="Nom du flux"
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-400"
+            />
+            <input
+              type="text"
+              name="url"
+              value={editFormData.url}
+              onChange={handleEditChange}
+              placeholder="URL du flux M3U8"
+              className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-400"
+            />
+            <div className="flex space-x-3">
+              <button
+                onClick={handleUpdateStream}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+              >
+                <Save className="h-4 w-4" />
+                Enregistrer
+              </button>
+              <button
+                onClick={() => { setEditingStream(null); setEditFormData({ name: '', url: '' }); }}
+                className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors flex items-center space-x-2"
+              >
+                <X className="h-4 w-4" />
+                Annuler
+              </button>
             </div>
-          ))}
-          {messages.length === 0 && (
-            <div className="text-center py-12 text-slate-500">
-              <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Aucun message pour le moment</p>
-            </div>
-          )}
+          </div>
         </div>
+      )}
+
+      {/* --- FORMULAIRE DE CRÉATION (s'affiche si on ajoute un nouveau flux) --- */}
+      {showNewStreamKey && (
+        <div className="mb-6 p-4 bg-slate-800/50 border border-violet-500/50 rounded-xl">
+          <h4 className="text-lg font-semibold text-white mb-4">Ajouter un nouveau flux</h4>
+          {/* ... (conservez votre code de création existant ici) ... */}
+        </div>
+      )}
+
+      <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+        {streamKeys.map((stream) => (
+          <div key={stream.id} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl group">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                {stream.title.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-white font-medium">{stream.title}</p>
+                <p className="text-slate-400 text-sm truncate max-w-xs">{stream.key}</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => handleEditClick(stream)}
+                className="p-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-colors"
+                title="Modifier"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDeleteStream(stream.id)}
+                className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
+                title="Supprimer"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-        <div className="text-center">
-          <Shield className="h-16 w-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Accès Refusé</h2>
-          <p className="text-slate-400">Vous devez être administrateur pour accéder à cette page</p>
-        </div>
-      </div>
-    );
-  }
+  // ... (conservez toutes vos autres fonctions comme renderOverview, renderChat, etc.)
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <div className="bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl p-8 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Panel d'Administration</h1>
-                <p className="text-white/90">Bienvenue, {user?.username}</p>
-              </div>
-              <Shield className="h-12 w-12 text-white" />
-            </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      <div className="container mx-auto px-6 py-12">
+        <div className="flex items-center justify-between mb-12">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent mb-2">
+              Espace Administrateur
+            </h1>
+            <p className="text-slate-400">Gérez les flux, les utilisateurs et le chat</p>
           </div>
-
-          {notification && (
-            <div className={`p-4 rounded-lg mb-6 ${
-              notification.type === 'success' ? 'bg-green-500/20 border border-green-500/30 text-green-400' :
-              'bg-red-500/20 border border-red-500/30 text-red-400'
-            }`}>
-              <div className="flex items-center space-x-2">
-                {notification.type === 'success' ? <CheckCircle className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
-                <span>{notification.message}</span>
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2 bg-slate-800 rounded-xl p-2 border border-slate-700">
-            {[
-              { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-              { id: 'users', label: 'Utilisateurs', icon: Users },
-              { id: 'moderation', label: 'Modération', icon: Shield },
-              { id: 'messages', label: 'Messages', icon: MessageCircle },
-              { id: 'analytics', label: 'Activité', icon: Clock }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-blue-500 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-700'
-                }`}
-              >
-                <tab.icon className="h-5 w-5" />
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
+          <button onClick={onBack} className="px-6 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-white rounded-xl transition-all duration-300 border border-slate-600/50">
+            ← Retour
+          </button>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <RefreshCw className="h-8 w-8 text-blue-400 animate-spin" />
-          </div>
-        ) : (
-          <>
-            {activeTab === 'dashboard' && renderDashboard()}
-            {activeTab === 'users' && renderUsers()}
-            {activeTab === 'moderation' && renderModeration()}
-            {activeTab === 'messages' && renderMessages()}
-            {activeTab === 'analytics' && (
-              <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-                <h3 className="text-lg font-semibold text-white mb-4">Logs d'Activité</h3>
-                <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                  {activityLogs.map((log) => (
-                    <div key={log.id} className="p-3 bg-slate-900/50 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-white font-medium">{log.action_type}</span>
-                          {log.username && <span className="text-slate-400 text-sm ml-2">- {log.username}</span>}
-                        </div>
-                        <span className="text-xs text-slate-500">
-                          {new Date(log.created_at).toLocaleString('fr-FR')}
-                        </span>
-                      </div>
-                      {log.admin_username && (
-                        <div className="text-xs text-slate-500 mt-1">Par: {log.admin_username}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
+        <div className="space-y-8">
+          {renderStreams()}
+          {/* ... (vos autres onglets comme renderOverview, renderUsers, etc.) */}
+        </div>
       </div>
     </div>
   );
 };
+
+export default AdminPage;
