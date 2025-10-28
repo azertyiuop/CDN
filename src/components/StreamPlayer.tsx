@@ -3,12 +3,29 @@ import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, TriangleAl
 import { StreamSource } from '../types';
 import Hls from 'hls.js';
 
+// --- DÉBUT DES AJOUTS : Définition des types pour l'overlay ---
+type OverlayPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
+// --- FIN DES AJOUTS ---
+
 interface StreamPlayerProps {
   source: StreamSource | null;
   onError?: (error: string) => void;
+  // --- DÉBUT DES AJOUTS : Nouvelles props pour l'overlay ---
+  overlaySrc?: string;         // Le chemin vers votre image (URL ou chemin local)
+  overlayPosition?: OverlayPosition; // La position de l'overlay
+  overlaySize?: string;        // La taille de l'overlay (ex: "w-16 h-16", "w-24 h-24")
+  // --- FIN DES AJOUTS ---
 }
 
-const StreamPlayer: React.FC<StreamPlayerProps> = ({ source, onError }) => {
+const StreamPlayer: React.FC<StreamPlayerProps> = ({
+  source,
+  onError,
+  // --- DÉBUT DES AJOUTS : Récupération des props avec valeurs par défaut ---
+  overlaySrc,
+  overlayPosition = 'top-right', // Position par défaut
+  overlaySize = 'w-16 h-16'      // Taille par défaut (64x64px)
+  // --- FIN DES AJOUTS ---
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -20,6 +37,19 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({ source, onError }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  // --- DÉBUT DES AJOUTS : Logique pour déterminer la classe CSS de positionnement ---
+  const getPositionClasses = (position: OverlayPosition): string => {
+    switch (position) {
+      case 'top-left': return 'top-4 left-4';
+      case 'top-right': return 'top-4 right-4';
+      case 'bottom-left': return 'bottom-4 left-4';
+      case 'bottom-right': return 'bottom-4 right-4';
+      case 'center': return 'top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2';
+      default: return 'top-4 right-4';
+    }
+  };
+  // --- FIN DES AJOUTS ---
 
   useEffect(() => {
     if (source && videoRef.current) {
@@ -231,6 +261,16 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({ source, onError }) => {
             poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect width='800' height='450' fill='%23000'/%3E%3C/svg%3E"
           />
           
+          {/* --- DÉBUT DES AJOUTS : L'OVERLAY --- */}
+          {overlaySrc && (
+            <img
+              src={overlaySrc}
+              alt="Stream Overlay"
+              className={`absolute ${getPositionClasses(overlayPosition)} ${overlaySize} pointer-events-none z-10`}
+            />
+          )}
+          {/* --- FIN DES AJOUTS --- */}
+          
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
               <div className="text-center">
@@ -309,7 +349,7 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({ source, onError }) => {
           </div>
 
           {/* Indicateur de statut */}
-          <div className="absolute top-6 left-6">
+          <div className="absolute top-6 left-6 z-20">
             <div className="flex items-center bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
               <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
               EN DIRECT
