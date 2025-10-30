@@ -241,6 +241,13 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
     }
   }, [source, onError]);
 
+  // Mettre à jour le volume sans relancer HLS
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume / 100;
+    }
+  }, [volume]);
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
