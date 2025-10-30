@@ -172,16 +172,23 @@ function App() {
     };
   }, []);
 
+  // S'assurer que la page courante est transmise au serveur et que le chat global est rejoint
   useEffect(() => {
-    if (wsServiceInstance && currentUser && isAuthenticated) {
-      wsServiceInstance.sendUserInfo(currentUser.username, 'home');
-      setTimeout(() => {
-        if (wsServiceInstance.ws && wsServiceInstance.ws.readyState === WebSocket.OPEN) {
-          wsServiceInstance.ws.send(JSON.stringify({ type: 'join_global_chat' }));
-        }
-      }, 500);
+    if (!wsServiceInstance || !currentUser || !isAuthenticated) return;
+    const pageMap: Record<Page, string> = {
+      home: 'home',
+      live: 'live',
+      admin: 'admin',
+      'admin-new': 'admin-new',
+      legal: 'legal',
+      dmca: 'dmca'
+    };
+    wsServiceInstance.sendUserInfo(currentUser.username, pageMap[currentPage]);
+    // Rejoindre le chat global pour s'assurer de recevoir les messages en temps réel
+    if (wsServiceInstance.ws && wsServiceInstance.ws.readyState === WebSocket.OPEN) {
+      wsServiceInstance.ws.send(JSON.stringify({ type: 'join_global_chat' }));
     }
-  }, [wsServiceInstance, currentUser, isAuthenticated]);
+  }, [currentPage, wsServiceInstance, currentUser, isAuthenticated]);
 
   // Vérification de l'authentification au chargement
   useEffect(() => {
