@@ -435,7 +435,7 @@ function App() {
       {/* Contenu principal */}
       <main className="animate-in fade-in-0 duration-500">
         {currentPage === 'live' ? (
-          <LiveStreamListPage currentUser={currentUser} onBack={() => navigateToPage('home')} />
+          <LiveStreamListPage currentUser={currentUser} onBack={() => navigateToPage('home')} chatMessages={chatMessages} wsService={wsServiceInstance} />
         ) : currentPage === 'legal' ? (
           <LegalMentionsPage onBack={() => navigateToPage('home')} />
         ) : currentPage === 'dmca' ? (
