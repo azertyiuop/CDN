@@ -81,6 +81,11 @@ const AdminPanelEnhanced: React.FC<AdminPanelEnhancedProps> = ({
           handleAdminUpdate(data);
         } else if (data.type === 'message_deleted') {
           setAllChatMessages(prev => prev.filter(msg => msg.id !== data.messageId));
+        } else if (data.type === 'streams_update' && Array.isArray(data.streams)) {
+          setM3uStreams(data.streams);
+          localStorage.setItem('m3u_streams', JSON.stringify(data.streams));
+          // notifier localement les autres composants
+          window.dispatchEvent(new CustomEvent('m3u_streams_updated'));
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
@@ -128,6 +133,9 @@ const AdminPanelEnhanced: React.FC<AdminPanelEnhancedProps> = ({
     const updatedStreams = [...m3uStreams, newStream];
     setM3uStreams(updatedStreams);
     localStorage.setItem('m3u_streams', JSON.stringify(updatedStreams));
+    // broadcast en temps réel
+    window.dispatchEvent(new CustomEvent('m3u_streams_updated'));
+    wsService?.send?.({ type: 'streams_update', streams: updatedStreams });
 
     setShowAddStreamModal(false);
     setNewStreamName('');
@@ -140,6 +148,9 @@ const AdminPanelEnhanced: React.FC<AdminPanelEnhancedProps> = ({
     const updatedStreams = m3uStreams.filter(s => s.id !== streamId);
     setM3uStreams(updatedStreams);
     localStorage.setItem('m3u_streams', JSON.stringify(updatedStreams));
+    // broadcast en temps réel
+    window.dispatchEvent(new CustomEvent('m3u_streams_updated'));
+    wsService?.send?.({ type: 'streams_update', streams: updatedStreams });
   };
 
   const handleToggleStreamActive = (streamId: string) => {
@@ -148,6 +159,9 @@ const AdminPanelEnhanced: React.FC<AdminPanelEnhancedProps> = ({
     );
     setM3uStreams(updatedStreams);
     localStorage.setItem('m3u_streams', JSON.stringify(updatedStreams));
+    // broadcast en temps réel
+    window.dispatchEvent(new CustomEvent('m3u_streams_updated'));
+    wsService?.send?.({ type: 'streams_update', streams: updatedStreams });
   };
 
   const handleBanUser = () => {
