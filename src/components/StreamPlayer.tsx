@@ -2,6 +2,21 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, TriangleAlert as AlertTriangle, Loader, Monitor } from 'lucide-react';
 import { StreamSource } from '../types';
 import Hls from 'hls.js';
+import { buildProxyUrl } from '../utils/proxy';
+
+
+function attachHls(videoEl: HTMLVideoElement, originalUrl: string) {
+  const src = buildProxyUrl(originalUrl);
+
+  if (Hls.isSupported()) {
+    const hls = new Hls();
+    hls.loadSource(src);
+    hls.attachMedia(videoEl);
+  } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+    videoEl.src = src; // Safari natif
+    videoEl.play?.();
+  }
+}
 
 // --- DÉBUT DES AJOUTS : Définition des types pour l'overlay ---
 type OverlayPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
