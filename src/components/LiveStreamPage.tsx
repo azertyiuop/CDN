@@ -1,33 +1,45 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, TriangleAlert as AlertTriangle, Loader, Monitor, ChevronUp } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, TriangleAlert as AlertTriangle, Loader, Monitor } from 'lucide-react';
 import { StreamSource } from '../types';
 import Hls from 'hls.js';
 import { buildProxyUrl } from '../utils/proxy';
 
-// --- Définition des types pour l'overlay ---
+
+function attachHls(videoEl: HTMLVideoElement, originalUrl: string) {
+  const src = buildProxyUrl(originalUrl);
+
+  if (Hls.isSupported()) {
+    const hls = new Hls();
+    hls.loadSource(src);
+    hls.attachMedia(videoEl);
+  } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+    videoEl.src = src; // Safari natif
+    videoEl.play?.();
+  }
+}
+
+// --- DÉBUT DES AJOUTS : Définition des types pour l'overlay ---
 type OverlayPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
+// --- FIN DES AJOUTS ---
 
 interface StreamPlayerProps {
   source: StreamSource | null;
   onError?: (error: string) => void;
-  // --- NOUVELLES PROPS POUR L'OVERLAY ---
+  // --- DÉBUT DES AJOUTS : Nouvelles props pour l'overlay ---
   overlaySrc?: string;         // Le chemin vers votre image (URL ou chemin local)
   overlayPosition?: OverlayPosition; // La position de l'overlay
   overlaySize?: string;        // La taille de l'overlay (ex: "w-16 h-16", "w-24 h-24")
-  // --- NOUVELLES PROPS POUR LA QUALITÉ ET LE NOM ---
-  quality?: 'auto' | number | string; // 'auto' | index (number) | résolution string comme '720' ou '1080'
-  showStreamName?: boolean; // false pour ne pas afficher le nom du live dans le player
+  // --- FIN DES AJOUTS ---
 }
 
 const StreamPlayer: React.FC<StreamPlayerProps> = ({
   source,
   onError,
+  // --- DÉBUT DES AJOUTS : Récupération des props avec valeurs par défaut ---
   overlaySrc,
   overlayPosition = 'top-right', // Position par défaut
   overlaySize = 'w-16 h-16'      // Taille par défaut (64x64px)
-  ,
-  quality = 'auto',
-  showStreamName = true
+  // --- FIN DES AJOUTS ---
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -41,12 +53,7 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // --- ÉTAT POUR LA GESTION DE LA QUALITÉ ---
-  const [availableQualities, setAvailableQualities] = useState<any[]>([]);
-  const [currentQuality, setCurrentQuality] = useState<number | null>(null);
-  const [isQualityDropdownOpen, setIsQualityDropdownOpen] = useState(false);
-
-  // --- Logique pour déterminer la classe CSS de positionnement ---
+  // --- DÉBUT DES AJOUTS : Logique pour déterminer la classe CSS de positionnement ---
   const getPositionClasses = (position: OverlayPosition): string => {
     switch (position) {
       case 'top-left': return 'top-4 left-4';
@@ -57,61 +64,7 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
       default: return 'top-4 right-4';
     }
   };
-
-  // --- Fonction pour formater le label de la qualité ---
-  const getQualityLabel = (level: any) => {
-    if (!level) return 'Auto';
-    if (level.height) {
-      return `${level.height}p`;
-    }
-    if (level.bitrate) {
-      return `${Math.round(level.bitrate/1000)}kbps`;
-    }
-    return 'Qualité';
-  };
-
-  // --- Fonction pour gérer le changement de qualité ---
-  const handleQualityChange = (levelIndex: number) => {
-    if (hlsRef.current) {
-      // -1 = auto (abrégé par Hls)
-      hlsRef.current.currentLevel = levelIndex;
-      setCurrentQuality(levelIndex);
-      setIsQualityDropdownOpen(false);
-    }
-  };
-
-  // Appliquer la qualité demandée depuis le prop `quality`
-  useEffect(() => {
-    if (!hlsRef.current || availableQualities.length === 0) return;
-    const hls = hlsRef.current;
-
-    if (quality === 'auto' || quality === -1) {
-      hls.currentLevel = -1;
-      setCurrentQuality(-1);
-      return;
-    }
-
-    // si quality est un index numérique
-    if (typeof quality === 'number') {
-      const idx = quality;
-      if (idx >= -1 && idx < availableQualities.length) {
-        hls.currentLevel = idx;
-        setCurrentQuality(idx);
-      }
-      return;
-    }
-
-    // si quality est une string de résolution comme "720" ou "720p"
-    const qStr = String(quality).replace(/p$/i, '');
-    const desiredHeight = parseInt(qStr, 10);
-    if (!isNaN(desiredHeight)) {
-      const matchIdx = availableQualities.findIndex(l => l.height === desiredHeight);
-      if (matchIdx !== -1) {
-        hls.currentLevel = matchIdx;
-        setCurrentQuality(matchIdx);
-      }
-    }
-  }, [quality, availableQualities]);
+  // --- FIN DES AJOUTS ---
 
   useEffect(() => {
     if (source && videoRef.current) {
@@ -119,7 +72,6 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
       setError(null);
 
       const video = videoRef.current;
-      video.volume = volume / 100;
 
       const handleLoadStart = () => setIsLoading(true);
       const handleCanPlay = () => {
@@ -143,11 +95,13 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
       video.addEventListener('play', handlePlay);
       video.addEventListener('pause', handlePause);
 
+      // Nettoyer l'instance HLS précédente
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
 
+      // Vérifier si c'est un flux M3U8
       if (source.url.includes('.m3u8')) {
         if (Hls.isSupported()) {
           const hls = new Hls({
@@ -163,35 +117,7 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
 
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             console.log('HLS manifest parsed, ready to play');
-            // --- Initialiser les qualités disponibles ---
-            setAvailableQualities(hls.levels);
-            setCurrentQuality(hls.currentLevel);
-            // Si un prop `quality` est fourni, on l'applique après parsing
-            if (quality === 'auto' || quality === -1) {
-              hls.currentLevel = -1;
-              setCurrentQuality(-1);
-            } else if (typeof quality === 'number') {
-              if (quality >= -1 && quality < hls.levels.length) {
-                hls.currentLevel = quality;
-                setCurrentQuality(quality);
-              }
-            } else if (typeof quality === 'string') {
-              const qStr = quality.replace(/p$/i, '');
-              const desiredHeight = parseInt(qStr, 10);
-              if (!isNaN(desiredHeight)) {
-                const matchIdx = hls.levels.findIndex((l: any) => l.height === desiredHeight);
-                if (matchIdx !== -1) {
-                  hls.currentLevel = matchIdx;
-                  setCurrentQuality(matchIdx);
-                }
-              }
-            }
-             video.play().catch(err => console.log('Auto-play prevented:', err));
-          });
-
-          // --- Mettre à jour la qualité actuelle lors d'un changement automatique ---
-          hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
-            setCurrentQuality(data.level);
+            video.play().catch(err => console.log('Auto-play prevented:', err));
           });
 
           hls.on(Hls.Events.ERROR, (event, data) => {
@@ -214,6 +140,7 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
             }
           });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // Support natif HLS (Safari)
           video.src = buildProxyUrl(source.url);
           video.addEventListener('loadedmetadata', () => {
             video.play().catch(err => console.log('Auto-play prevented:', err));
@@ -222,6 +149,7 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
           setError('Votre navigateur ne supporte pas la lecture HLS');
         }
       } else {
+        // Flux non-HLS (MP4, etc.)
         video.src = source.url;
       }
 
@@ -354,7 +282,7 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
             poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect width='800' height='450' fill='%23000'/%3E%3C/svg%3E"
           />
           
-          {/* --- L'OVERLAY --- */}
+          {/* --- DÉBUT DES AJOUTS : L'OVERLAY --- */}
           {overlaySrc && (
             <img
               src={overlaySrc}
@@ -362,7 +290,8 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
               className={`absolute ${getPositionClasses(overlayPosition)} ${overlaySize} pointer-events-none z-10`}
             />
           )}
-
+          {/* --- FIN DES AJOUTS --- */}
+          
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
               <div className="text-center">
@@ -425,38 +354,10 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
               
               <div className="flex-1"></div>
               
-              {/* --- SÉLECTEUR DE QUALITÉ (NOUVEAU) --- */}
-              {availableQualities.length > 1 && (
-                <div className="relative">
-                  <button
-                    onClick={() => setIsQualityDropdownOpen(!isQualityDropdownOpen)}
-                    className="text-white text-sm font-medium bg-black/30 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 transition-all flex items-center space-x-2"
-                  >
-                    {currentQuality !== null ? getQualityLabel(availableQualities[currentQuality]) : 'Auto'}
-                    <ChevronUp className={`h-4 w-4 transition-transform ${isQualityDropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {isQualityDropdownOpen && (
-                    <div className="absolute bottom-full mb-2 right-0 bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg shadow-lg py-1 z-30">
-                      <button
-                        onClick={() => handleQualityChange(-1)}
-                        className={`w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors ${currentQuality === -1 ? 'bg-violet-600/20' : ''}`}
-                      >
-                        Auto
-                      </button>
-                      {availableQualities.map((level, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleQualityChange(index)}
-                          className={`w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 transition-colors ${currentQuality === index ? 'bg-violet-600/20' : ''}`}
-                        >
-                          {getQualityLabel(level)}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Nom de la source */}
+              <div className="text-white text-sm font-medium bg-black/30 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/10 max-w-xs truncate">
+                🔴 {source.name}
+              </div>
               
               {/* Plein écran */}
               <button
@@ -475,15 +376,6 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
               EN DIRECT
             </div>
           </div>
-
-          {/* Nom du stream (peut être caché via la prop showStreamName) */}
-          {showStreamName && source?.name && (
-            <div className="absolute top-6 right-6 z-20">
-              <div className="bg-black/60 text-white px-3 py-2 rounded-lg text-sm font-medium backdrop-blur-sm border border-white/10">
-                {source.name}
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>
