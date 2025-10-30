@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Shield, Crown, LogOut, Users, Radio, Zap, Globe, Lock, Activity, WifiOff } from 'lucide-react';
 import AuthPage from './components/AuthPage';
 import AdminPanelEnhanced from './components/AdminPanelEnhanced';
-import { AdminDashboard } from './components/AdminDashboard';
+import AdminDashboard from './components/AdminDashboard';
 import StreamPlayer from './components/StreamPlayer';
 import ChatBox from './components/ChatBox';
 import LegalMentionsPage from './components/LegalMentionsPage';
