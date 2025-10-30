@@ -80,7 +80,7 @@ const HomePage: React.FC<HomePageProps> = ({ activeUsers, onNavigate }) => {
           <div className="relative z-10 px-8 py-16 text-center">
             <div className="inline-flex items-center bg-white/5 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 mb-8 animate-in fade-in-0 duration-500 delay-200">
               <Sparkles className="h-4 w-4 text-yellow-400 mr-2 animate-pulse" />
-              <span className="text-white/90 text-sm font-medium">Plateforme Privée Nouvelle Génération</span>
+              <span className="text-white/90 text-sm font-medium">discord.gg/...</span>
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight animate-in slide-in-from-bottom-4 duration-700 delay-300">
@@ -91,7 +91,7 @@ const HomePage: React.FC<HomePageProps> = ({ activeUsers, onNavigate }) => {
             </h1>
             
             <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-8 leading-relaxed animate-in slide-in-from-bottom-4 duration-700 delay-500">
-              Découvrez une expérience de streaming révolutionnaire avec une qualité 4K cristalline et une communauté anonyme active 24/7.
+              Découvrez une nouvelle façon de regarder vos contenus favoris !
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-in slide-in-from-bottom-4 duration-700 delay-700">
