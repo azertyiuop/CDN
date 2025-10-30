@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, TriangleAlert as AlertTriangle, Loader, Monitor, ChevronUp } from 'lucide-react';
 import { StreamSource } from '../types';
 import Hls from 'hls.js';
+import { buildProxyUrl } from '../utils/proxy';
 
 // --- Définition des types pour l'overlay ---
 type OverlayPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
@@ -157,7 +158,7 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
           });
 
           hlsRef.current = hls;
-          hls.loadSource(source.url);
+          hls.loadSource(buildProxyUrl(source.url));
           hls.attachMedia(video);
 
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -213,7 +214,7 @@ const StreamPlayer: React.FC<StreamPlayerProps> = ({
             }
           });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = source.url;
+          video.src = buildProxyUrl(source.url);
           video.addEventListener('loadedmetadata', () => {
             video.play().catch(err => console.log('Auto-play prevented:', err));
           });
