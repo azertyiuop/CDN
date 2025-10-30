@@ -418,3 +418,4 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ wsUrl }) => {
 };
 
 export default AdminDashboard;
+export { AdminDashboard };
