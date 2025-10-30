@@ -14,17 +14,32 @@ export default function LiveStreamListPage({ currentUser, onBack }: LiveStreamLi
   const [selectedStream, setSelectedStream] = useState<StreamSource | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadStreams = () => {
     const storedStreams = localStorage.getItem('m3u_streams');
     if (storedStreams) {
       try {
-        const parsedStreams = JSON.parse(storedStreams);
-        setStreams(parsedStreams);
+        const parsed: StreamSource[] = JSON.parse(storedStreams);
+        setStreams(parsed.filter(s => s?.isActive !== false));
       } catch (error) {
         console.error('Error parsing streams:', error);
+        setStreams([]);
       }
+    } else {
+      setStreams([]);
     }
+  };
+
+  useEffect(() => {
+    loadStreams();
     setLoading(false);
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'm3u_streams') loadStreams();
+    };
+    const onCustom = () => loadStreams();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('m3u_streams_updated' as any, onCustom as any);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   if (selectedStream) {
